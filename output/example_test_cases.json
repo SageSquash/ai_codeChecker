@@ -1,0 +1,13 @@
+{
+    "test_cases": [
+        {
+            "name": "test_calculate_circle_area_basic",
+            "function": "calculate_circle_area",
+            "inputs": {
+                "radius": null
+            },
+            "expected_output": null,
+            "description": "Basic test for calculate_circle_area"
+        }
+    ]
+}

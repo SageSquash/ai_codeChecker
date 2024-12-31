@@ -1,0 +1,8 @@
+google-generativeai
+pytest
+typing
+python-dotenv
+coverage
+black
+flake8
+mypy

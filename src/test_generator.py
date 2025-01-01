@@ -46,7 +46,6 @@ class TestGenerator:
 
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
-                    # Analyze function
                     func_info = {
                         'name': node.name,
                         'args': [{'name': arg.arg, 'type': self._get_type_hint(arg)} for arg in node.args.args],
@@ -57,7 +56,6 @@ class TestGenerator:
                     analysis['functions'].append(func_info)
                 
                 elif isinstance(node, ast.ClassDef):
-                    # Analyze class
                     class_info = {
                         'name': node.name,
                         'methods': [],
@@ -83,18 +81,13 @@ class TestGenerator:
     def process_code(self, code: str, file_path: str) -> Dict:
         """Process the code and generate tests"""
         try:
-            # Analyze the code
             analysis = self.analyze_code(code, file_path)
-            
-            # Generate prompt based on analysis
             prompt = self._generate_prompt(code, analysis)
             
-            # Get AI response
             print("\nGenerating tests...")
             response = self.model.generate_content(prompt)
             response_text = response.text
 
-            # Process the response
             unittest_code = self._process_ai_response(response_text, analysis)
             test_cases = self._generate_test_cases(analysis)
 
@@ -152,14 +145,11 @@ class TestGenerator:
 
     def _process_ai_response(self, response_text: str, analysis: CodeAnalysis) -> str:
         """Process and format the AI response into valid unittest code"""
-        # Extract code from markdown if present
         code_match = re.search(r'```python(.*?)```', response_text, re.DOTALL)
         unittest_code = code_match.group(1) if code_match else response_text
 
-        # Clean up the code
         unittest_code = unittest_code.strip()
 
-        # Add imports
         imports = f"""import unittest
 import sys
 import os
@@ -169,7 +159,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from {analysis.module_name} import *
 """
 
-        # Ensure proper test class structure
         if 'class Test' not in unittest_code:
             class_name = analysis.classes[0]['name'] if analysis.classes else 'Functions'
             unittest_code = f"""
@@ -185,7 +174,6 @@ class Test{class_name}(unittest.TestCase):
 {unittest_code}
 """
 
-        # Add main block if not present
         if '__main__' not in unittest_code:
             unittest_code += "\n\nif __name__ == '__main__':\n    unittest.main()"
 
@@ -195,12 +183,10 @@ class Test{class_name}(unittest.TestCase):
         """Generate structured test cases based on code analysis"""
         test_cases = {"test_cases": []}
 
-        # Generate test cases for standalone functions
         for func in analysis.functions:
             if not func['is_method']:
                 test_cases['test_cases'].extend(self._generate_function_test_cases(func))
 
-        # Generate test cases for classes and their methods
         for class_info in analysis.classes:
             for method in class_info['methods']:
                 test_cases['test_cases'].extend(self._generate_method_test_cases(class_info['name'], method))
@@ -259,117 +245,181 @@ class Test{class_name}(unittest.TestCase):
             'test_cases': test_cases,
             'unittest_code': unittest_code
         }
-    
+
     def generate_feedback(self, test_output: str, code: str) -> Dict:
         """Generate feedback based on test results"""
         try:
-            prompt = f"""
-            Analyze these test results and the original code to provide comprehensive feedback:
-
-            Original Code:
-            ```python
-            {code}
-            ```
-
-            Test Results:
-            ```
-            {test_output}
-            ```
-
-            Provide a detailed analysis in JSON format with the following structure:
-            {{
-                "score": <float between 0-5>,
-                "summary": {{
-                    "total_tests": <int>,
-                    "passed": <int>,
-                    "failed": <int>,
-                    "errors": <int>
-                }},
-                "code_quality": {{
-                    "complexity": "<low|medium|high>",
-                    "maintainability": "<good|fair|poor>",
-                    "test_coverage": "<percentage>",
-                    "best_practices": [
-                        "practice1",
-                        "practice2"
-                    ],
-                    "areas_of_concern": [
-                        "concern1",
-                        "concern2"
-                    ]
-                }},
-                "detailed_feedback": {{
-                    "strengths": [
-                        "strength1",
-                        "strength2"
-                    ],
-                    "weaknesses": [
-                        "weakness1",
-                        "weakness2"
-                    ],
-                    "recommendations": [
-                        "recommendation1",
-                        "recommendation2"
-                    ]
-                }},
-                "test_quality": {{
-                    "coverage_assessment": "description of test coverage",
-                    "edge_cases": "assessment of edge case handling",
-                    "assertion_quality": "evaluation of assertions used"
-                }},
-                "security_considerations": [
-                    "security1",
-                    "security2"
-                ],
-                "performance_insights": {{
-                    "efficiency": "<good|fair|poor>",
-                    "bottlenecks": [
-                        "bottleneck1",
-                        "bottleneck2"
-                    ],
-                    "optimization_suggestions": [
-                        "suggestion1",
-                        "suggestion2"
-                    ]
-                }}
-            }}
-
-            Consider:
-            1. Code complexity and maintainability
-            2. Test coverage and quality
-            3. Best practices adherence
-            4. Security implications
-            5. Performance considerations
-            6. Error handling
-            7. Documentation quality
-
-            Provide specific, actionable feedback and recommendations.
-            """
-
-            print("\nGenerating feedback...")
-            response = self.model.generate_content(prompt)
+            print("\n=== Parsing Test Results ===")
+            
+            # Improved test result parsing
+            # Look for the summary line that shows total tests run
+            summary_match = re.search(r'Ran (\d+) tests? in', test_output)
+            total_tests = int(summary_match.group(1)) if summary_match else 0
+            
+            # Count passed tests (tests that show "ok")
+            passed = len(re.findall(r' \.\.\. ok', test_output))
+            
+            # Count failed tests (tests that show "FAIL")
+            failed = len(re.findall(r' \.\.\. FAIL', test_output))
+            
+            # Count error tests (tests that show "ERROR")
+            errors = len(re.findall(r' \.\.\. ERROR', test_output))
+            
+            print(f"Found: {total_tests} total, {passed} passed, {failed} failed, {errors} errors")
+            
+            # Calculate metrics
+            pass_percentage = (passed / total_tests * 100) if total_tests > 0 else 0
+            score = (passed / total_tests * 5) if total_tests > 0 else 0
+            
+            print(f"Pass rate: {pass_percentage:.1f}%")
+            print(f"Initial score: {score:.1f}/5.0")
             
             try:
-                feedback = json.loads(response.text)
-                return feedback
-            except json.JSONDecodeError:
-                # Fallback if JSON parsing fails
-                return self._generate_basic_feedback(test_output)
-
+                print("\n=== Attempting AI Feedback Generation ===")
+                # Try AI feedback
+                prompt = f"""
+                Generate test analysis feedback in JSON format for these test results:
+                
+                Test Summary:
+                - Total tests: {total_tests}
+                - Passed: {passed}
+                - Failed: {failed}
+                - Errors: {errors}
+                - Pass rate: {pass_percentage:.1f}%
+                
+                Test Output:
+                {test_output}
+                
+                Respond only with a JSON object in this exact format:
+                {{
+                    "score": {score},
+                    "summary": {{
+                        "total_tests": {total_tests},
+                        "passed": {passed},
+                        "failed": {failed},
+                        "errors": {errors}
+                    }},
+                    "code_quality": {{
+                        "complexity": "low",
+                        "maintainability": "good",
+                        "test_coverage": "{pass_percentage:.1f}%"
+                    }},
+                    "detailed_feedback": {{
+                        "strengths": [
+                            "All tests passing successfully",
+                            "Good test organization"
+                        ],
+                        "weaknesses": [],
+                        "recommendations": [
+                            "Consider adding more edge cases",
+                            "Add performance tests"
+                        ]
+                    }}
+                }}
+                """
+                
+                print("Sending request to AI model...")
+                response = self.model.generate_content(prompt)
+                print("Received response from AI model")
+                
+                try:
+                    print("Parsing AI response...")
+                    # Clean the response text
+                    response_text = response.text.strip()
+                    # Remove any markdown formatting if present
+                    if "```json" in response_text:
+                        response_text = response_text.split("```json")[1].split("```")[0].strip()
+                    elif "```" in response_text:
+                        response_text = response_text.split("```")[1].strip()
+                    
+                    feedback = json.loads(response_text)
+                    print("Successfully parsed AI feedback")
+                    
+                    # Ensure the metrics are correct
+                    feedback['score'] = score
+                    feedback['summary'] = {
+                        "total_tests": total_tests,
+                        "passed": passed,
+                        "failed": failed,
+                        "errors": errors
+                    }
+                    feedback['code_quality']['test_coverage'] = f"{pass_percentage:.1f}%"
+                    
+                    print("=== Using AI-Generated Feedback ===")
+                    return feedback
+                    
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse AI response: {e}")
+                    print("Response text:", response_text)
+                    print("Falling back to calculated feedback")
+                    return self._generate_calculated_feedback(total_tests, passed, failed, errors)
+                    
+            except Exception as e:
+                print(f"AI feedback generation failed: {e}")
+                print("Falling back to calculated feedback")
+                return self._generate_calculated_feedback(total_tests, passed, failed, errors)
+                    
         except Exception as e:
-            print(f"Error generating feedback: {e}")
-            return self._generate_basic_feedback(test_output)
+            print(f"Error in feedback generation: {e}")
+            print("Falling back to basic calculated feedback")
+            return self._generate_calculated_feedback(0, 0, 0, 0)
 
-    def _generate_basic_feedback(self, test_output: str) -> Dict:
-        """Generate basic feedback when AI generation fails"""
-        # Parse test results
-        total_tests = len(re.findall(r'test_\w+', test_output))
-        passed = len(re.findall(r' \.\.\. ok', test_output))
-        failed = len(re.findall(r' \.\.\. FAIL', test_output))
-        errors = len(re.findall(r' \.\.\. ERROR', test_output))
+    def _generate_calculated_feedback(self, total_tests: int, passed: int, failed: int, errors: int) -> Dict:
+        """Generate feedback based on test statistics"""
+        print("\n=== Generating Calculated Feedback ===")
+        pass_percentage = (passed / total_tests * 100) if total_tests > 0 else 0
+        score = (passed / total_tests * 5) if total_tests > 0 else 0
         
-        # Calculate score
-        score = 5.0 * (passed / total_tests) if total_tests > 0 else 0
+        print(f"Calculating feedback for: {passed}/{total_tests} tests passed ({pass_percentage:.1f}%)")
+        
+        # Determine quality ratings based on pass percentage
+        if pass_percentage == 100:
+            complexity = "low"
+            maintainability = "good"
+            efficiency = "good"
+        elif pass_percentage >= 80:
+            complexity = "low"
+            maintainability = "good"
+            efficiency = "good"
+        elif pass_percentage >= 60:
+            complexity = "medium"
+            maintainability = "fair"
+            efficiency = "fair"
+        else:
+            complexity = "high"
+            maintainability = "poor"
+            efficiency = "poor"
+
+        # Generate appropriate feedback messages
+        strengths = []
+        weaknesses = []
+        recommendations = []
+
+        # Add specific feedback based on test results
+        if passed == total_tests:
+            strengths.append("All tests passing successfully")
+            strengths.append("Perfect pass rate achieved")
+        elif passed > 0:
+            strengths.append(f"Successfully passed {passed} out of {total_tests} tests")
+        
+        if failed > 0:
+            weaknesses.append(f"Found {failed} failing test(s)")
+            recommendations.append("Fix failing tests to improve reliability")
+        
+        if errors > 0:
+            weaknesses.append(f"Encountered {errors} test error(s)")
+            recommendations.append("Address test errors to ensure proper execution")
+        
+        if total_tests < 10:
+            recommendations.append("Consider adding more test cases for better coverage")
+        
+        # Add default messages if needed
+        if not strengths:
+            strengths.append("Basic test structure implemented")
+        if not weaknesses and pass_percentage == 100:
+            strengths.append("No failing tests or errors")
+        if not recommendations:
+            recommendations.append("Consider adding more comprehensive tests")
 
         return {
             "score": round(score, 1),
@@ -380,28 +430,41 @@ class Test{class_name}(unittest.TestCase):
                 "errors": errors
             },
             "code_quality": {
-                "complexity": "medium",
-                "maintainability": "fair",
-                "test_coverage": f"{(passed/total_tests*100):.1f}%" if total_tests > 0 else "0%",
-                "best_practices": ["Basic tests implemented"],
-                "areas_of_concern": ["Limited test coverage"]
+                "complexity": complexity,
+                "maintainability": maintainability,
+                "test_coverage": f"{pass_percentage:.1f}%",
+                "best_practices": [
+                    f"Test suite with {total_tests} tests implemented",
+                    f"{passed}/{total_tests} tests passing successfully"
+                ],
+                "areas_of_concern": [
+                    f"{failed} failing tests" if failed > 0 else "No failing tests",
+                    f"{errors} test errors" if errors > 0 else "No test errors"
+                ]
             },
             "detailed_feedback": {
-                "strengths": ["Basic functionality tested"],
-                "weaknesses": ["Limited edge case testing"],
-                "recommendations": ["Add more comprehensive tests"]
+                "strengths": strengths,
+                "weaknesses": weaknesses,
+                "recommendations": recommendations
             },
             "test_quality": {
-                "coverage_assessment": "Basic test coverage achieved",
-                "edge_cases": "Limited edge case testing",
-                "assertion_quality": "Basic assertions implemented"
+                "coverage_assessment": f"Test coverage: {pass_percentage:.1f}%",
+                "edge_cases": "Consider adding more edge cases" if total_tests < 10 else "Good test coverage",
+                "assertion_quality": f"{passed}/{total_tests} tests passing successfully"
             },
             "security_considerations": [
-                "No security tests implemented"
+                "Basic security tests in place" if total_tests > 5 else "Consider adding security-specific tests",
+                "Review input validation coverage"
             ],
             "performance_insights": {
-                "efficiency": "fair",
-                "bottlenecks": ["Not analyzed"],
-                "optimization_suggestions": ["Implement performance testing"]
+                "efficiency": efficiency,
+                "bottlenecks": [
+                    "No major bottlenecks detected" if failed == 0 and errors == 0 else "Address failing tests",
+                    f"{failed} failing tests need attention" if failed > 0 else "All tests passing"
+                ],
+                "optimization_suggestions": [
+                    "Consider adding performance tests",
+                    "Add more edge cases" if total_tests < 10 else "Good test coverage"
+                ]
             }
         }

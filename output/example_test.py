@@ -7,45 +7,45 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from example import *
 
 import unittest
-import example
+from example import Person, Color, fibonacci, main
 
-class TestCalculateCircleArea(unittest.TestCase):
+class TestExample(unittest.TestCase):
 
-    def test_calculate_circle_area_positive_radius(self):
-        """
-        Test calculate_circle_area() with a positive radius.
-        """
-        radius = 5
-        expected_area = 78.54
-        actual_area = example.calculate_circle_area(radius)
-        self.assertAlmostEqual(actual_area, expected_area, delta=0.01)
+    def test_person(self):
+        """Test creating a Person namedtuple."""
+        person = Person(name="Alice", age=30, city="Wonderland")
+        self.assertEqual(person.name, "Alice")
+        self.assertEqual(person.age, 30)
+        self.assertEqual(person.city, "Wonderland")
 
-    def test_calculate_circle_area_negative_radius(self):
-        """
-        Test calculate_circle_area() with a negative radius.
-        """
-        radius = -3
-        expected_error_message = "Radius cannot be negative."
-        with self.assertRaises(Exception) as e:
-            example.calculate_circle_area(radius)
-        self.assertEqual(str(e.exception), expected_error_message)
+    def test_combinations(self):
+        """Test generating combinations using itertools."""
+        items = ['A', 'B', 'C']
+        combinations_list = list(combinations(items, 2))
+        self.assertEqual(combinations_list, [('A', 'B'), ('A', 'C'), ('B', 'C')])
 
-    def test_calculate_circle_area_zero_radius(self):
-        """
-        Test calculate_circle_area() with a zero radius.
-        """
-        radius = 0
-        expected_area = 0
-        actual_area = example.calculate_circle_area(radius)
-        self.assertEqual(actual_area, expected_area)
+    def test_fibonacci(self):
+        """Test computing Fibonacci numbers using lru_cache."""
+        self.assertEqual(fibonacci(10), 55)
+        self.assertEqual(fibonacci(0), 0)
+        self.assertEqual(fibonacci(1), 1)
 
-    def test_calculate_circle_area_invalid_input(self):
-        """
-        Test calculate_circle_area() with an invalid input (not a number).
-        """
-        with self.assertRaises(ValueError):
-            example.calculate_circle_area("abc")
+    def test_statistics(self):
+        """Test calculating mean and median using statistics."""
+        data = [10, 20, 30, 40, 50]
+        self.assertAlmostEqual(statistics.mean(data), 30.0)
+        self.assertEqual(statistics.median(data), 30)
 
+    def test_color_enum(self):
+        """Test working with constants using Enum."""
+        self.assertEqual(Color.RED.name, "RED")
+        self.assertEqual(Color.GREEN.value, 2)
+        self.assertIn(Color.BLUE, [Color.RED, Color.GREEN, Color.BLUE])
 
-if __name__ == '__main__':
+    def test_main(self):
+        """Test the main function."""
+        with self.assertRaises(TypeError):
+            main(10)  # Passing an invalid argument
+
+if __name__ == "__main__":
     unittest.main()

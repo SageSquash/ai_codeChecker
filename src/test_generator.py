@@ -259,3 +259,149 @@ class Test{class_name}(unittest.TestCase):
             'test_cases': test_cases,
             'unittest_code': unittest_code
         }
+    
+    def generate_feedback(self, test_output: str, code: str) -> Dict:
+        """Generate feedback based on test results"""
+        try:
+            prompt = f"""
+            Analyze these test results and the original code to provide comprehensive feedback:
+
+            Original Code:
+            ```python
+            {code}
+            ```
+
+            Test Results:
+            ```
+            {test_output}
+            ```
+
+            Provide a detailed analysis in JSON format with the following structure:
+            {{
+                "score": <float between 0-5>,
+                "summary": {{
+                    "total_tests": <int>,
+                    "passed": <int>,
+                    "failed": <int>,
+                    "errors": <int>
+                }},
+                "code_quality": {{
+                    "complexity": "<low|medium|high>",
+                    "maintainability": "<good|fair|poor>",
+                    "test_coverage": "<percentage>",
+                    "best_practices": [
+                        "practice1",
+                        "practice2"
+                    ],
+                    "areas_of_concern": [
+                        "concern1",
+                        "concern2"
+                    ]
+                }},
+                "detailed_feedback": {{
+                    "strengths": [
+                        "strength1",
+                        "strength2"
+                    ],
+                    "weaknesses": [
+                        "weakness1",
+                        "weakness2"
+                    ],
+                    "recommendations": [
+                        "recommendation1",
+                        "recommendation2"
+                    ]
+                }},
+                "test_quality": {{
+                    "coverage_assessment": "description of test coverage",
+                    "edge_cases": "assessment of edge case handling",
+                    "assertion_quality": "evaluation of assertions used"
+                }},
+                "security_considerations": [
+                    "security1",
+                    "security2"
+                ],
+                "performance_insights": {{
+                    "efficiency": "<good|fair|poor>",
+                    "bottlenecks": [
+                        "bottleneck1",
+                        "bottleneck2"
+                    ],
+                    "optimization_suggestions": [
+                        "suggestion1",
+                        "suggestion2"
+                    ]
+                }}
+            }}
+
+            Consider:
+            1. Code complexity and maintainability
+            2. Test coverage and quality
+            3. Best practices adherence
+            4. Security implications
+            5. Performance considerations
+            6. Error handling
+            7. Documentation quality
+
+            Provide specific, actionable feedback and recommendations.
+            """
+
+            print("\nGenerating feedback...")
+            response = self.model.generate_content(prompt)
+            
+            try:
+                feedback = json.loads(response.text)
+                return feedback
+            except json.JSONDecodeError:
+                # Fallback if JSON parsing fails
+                return self._generate_basic_feedback(test_output)
+
+        except Exception as e:
+            print(f"Error generating feedback: {e}")
+            return self._generate_basic_feedback(test_output)
+
+    def _generate_basic_feedback(self, test_output: str) -> Dict:
+        """Generate basic feedback when AI generation fails"""
+        # Parse test results
+        total_tests = len(re.findall(r'test_\w+', test_output))
+        passed = len(re.findall(r' \.\.\. ok', test_output))
+        failed = len(re.findall(r' \.\.\. FAIL', test_output))
+        errors = len(re.findall(r' \.\.\. ERROR', test_output))
+        
+        # Calculate score
+        score = 5.0 * (passed / total_tests) if total_tests > 0 else 0
+
+        return {
+            "score": round(score, 1),
+            "summary": {
+                "total_tests": total_tests,
+                "passed": passed,
+                "failed": failed,
+                "errors": errors
+            },
+            "code_quality": {
+                "complexity": "medium",
+                "maintainability": "fair",
+                "test_coverage": f"{(passed/total_tests*100):.1f}%" if total_tests > 0 else "0%",
+                "best_practices": ["Basic tests implemented"],
+                "areas_of_concern": ["Limited test coverage"]
+            },
+            "detailed_feedback": {
+                "strengths": ["Basic functionality tested"],
+                "weaknesses": ["Limited edge case testing"],
+                "recommendations": ["Add more comprehensive tests"]
+            },
+            "test_quality": {
+                "coverage_assessment": "Basic test coverage achieved",
+                "edge_cases": "Limited edge case testing",
+                "assertion_quality": "Basic assertions implemented"
+            },
+            "security_considerations": [
+                "No security tests implemented"
+            ],
+            "performance_insights": {
+                "efficiency": "fair",
+                "bottlenecks": ["Not analyzed"],
+                "optimization_suggestions": ["Implement performance testing"]
+            }
+        }

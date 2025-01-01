@@ -1,8 +1,84 @@
 import os
 import json
+import unittest
+import importlib.util
 from dotenv import load_dotenv
 from src.test_generator import TestGenerator
 from config.config import Config
+
+def run_unittest_file(unittest_path: str, generator: TestGenerator, original_code: str) -> tuple:
+    """
+    Run the generated unittest file and return the test results and output
+    """
+    try:
+        # Get the directory and file name
+        directory = os.path.dirname(unittest_path)
+        file_name = os.path.basename(unittest_path)
+        module_name = os.path.splitext(file_name)[0]
+
+        # Add the directory to Python path
+        import sys
+        if directory not in sys.path:
+            sys.path.insert(0, directory)
+
+        # Import the test module
+        spec = importlib.util.spec_from_file_location(module_name, unittest_path)
+        test_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(test_module)
+
+        # Create test suite and runner
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromModule(test_module)
+        
+        # Capture test output
+        from io import StringIO
+        output_stream = StringIO()
+        runner = unittest.TextTestRunner(stream=output_stream, verbosity=2)
+
+        print("\n=== Running Tests ===")
+        result = runner.run(suite)
+        test_output = output_stream.getvalue()
+        
+        # Generate feedback
+        print("\n=== Generating Feedback ===")
+        feedback = generator.generate_feedback(test_output, original_code)
+        
+        # Print test summary
+        print("\n=== Test Summary ===")
+        print(f"Tests run: {result.testsRun}")
+        print(f"Failures: {len(result.failures)}")
+        print(f"Errors: {len(result.errors)}")
+        print(f"Skipped: {len(result.skipped)}")
+        
+        # Print feedback
+        print("\n=== Code Analysis Feedback ===")
+        print(f"Overall Score: {feedback['score']}/5.0")
+        print(f"Code Quality: {feedback['code_quality']['complexity']} complexity, {feedback['code_quality']['maintainability']} maintainability")
+        print(f"Test Coverage: {feedback['code_quality']['test_coverage']}")
+        
+        print("\nStrengths:")
+        for strength in feedback['detailed_feedback']['strengths']:
+            print(f"✓ {strength}")
+        
+        print("\nAreas for Improvement:")
+        for weakness in feedback['detailed_feedback']['weaknesses']:
+            print(f"! {weakness}")
+        
+        print("\nRecommendations:")
+        for rec in feedback['detailed_feedback']['recommendations']:
+            print(f"→ {rec}")
+        
+        # Save feedback to file
+        feedback_path = os.path.join(directory, f"{module_name}_feedback.json")
+        with open(feedback_path, 'w') as f:
+            json.dump(feedback, f, indent=2)
+        print(f"\n✓ Detailed feedback saved to: {feedback_path}")
+        
+        return len(result.failures) == 0 and len(result.errors) == 0, feedback
+
+    except Exception as e:
+        print(f"Error running tests: {e}")
+        return False, None
 
 def main():
     # Load environment variables
@@ -43,7 +119,7 @@ def main():
 
     # Process the code
     print("\nGenerating tests...")
-    results = generator.process_code(code, file_path)  # Pass both code and file_path
+    results = generator.process_code(code, file_path)
     
     # Output results
     if results:
@@ -70,8 +146,22 @@ def main():
         
         print(f"\n✓ All files generated in {output_dir}/")
         
-        print("\nTo run tests, use:")
-        print(f"python -m unittest {unittest_path}")
+        # Run tests and get feedback
+        success, feedback = run_unittest_file(unittest_path, generator, code)
+        
+        # Print final status
+        print("\n=== Final Status ===")
+        if success:
+            print("✓ All tests passed successfully!")
+        else:
+            print("✗ Some tests failed or had errors")
+        
+        if feedback:
+            print(f"\nFinal Score: {feedback['score']}/5.0")
+            print("\nKey Recommendations:")
+            for rec in feedback['detailed_feedback']['recommendations'][:3]:
+                print(f"• {rec}")
+            
     else:
         print("✗ No results generated")
 

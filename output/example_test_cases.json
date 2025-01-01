@@ -1,13 +1,20 @@
 {
     "test_cases": [
         {
-            "name": "test_calculate_circle_area_basic",
-            "function": "calculate_circle_area",
+            "name": "test_fibonacci_basic",
+            "function": "fibonacci",
             "inputs": {
-                "radius": null
+                "n": null
             },
             "expected_output": null,
-            "description": "Basic test for calculate_circle_area"
+            "description": "Basic test for fibonacci"
+        },
+        {
+            "name": "test_main_basic",
+            "function": "main",
+            "inputs": {},
+            "expected_output": null,
+            "description": "Basic test for main"
         }
     ]
 }

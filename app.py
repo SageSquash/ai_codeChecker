@@ -245,48 +245,96 @@ def run_unittest_file(unittest_path: str, generator: TestGenerator, original_cod
             debug_container.empty()
             
 def display_feedback(feedback):
-    """Display feedback in a structured way"""
-    st.subheader("Code Analysis Feedback")
+    """Display formatted feedback in Streamlit with enhanced styling for both modes"""
     
-    # Display score with metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Overall Score", f"{feedback['score']}/5.0")
-    with col2:
-        st.metric("Code Quality", feedback['code_quality']['complexity'])
-    with col3:
-        st.metric("Test Coverage", feedback['code_quality']['test_coverage'])
-
-    # Display detailed feedback in expandable sections
-    with st.expander("Detailed Analysis", expanded=True):
-        # Strengths
-        st.markdown("### ✅ Strengths")
-        for strength in feedback['detailed_feedback']['strengths']:
-            st.markdown(f"- {strength}")
-
-        # Weaknesses
-        st.markdown("### ⚠️ Areas for Improvement")
-        for weakness in feedback['detailed_feedback']['weaknesses']:
-            st.markdown(f"- {weakness}")
-
-        # Recommendations
-        st.markdown("### 💡 Recommendations")
-        for rec in feedback['detailed_feedback']['recommendations']:
-            st.markdown(f"- {rec}")
-
-    # Additional insights
-    with st.expander("Security & Performance Insights"):
+    # Main header with custom styling
+    st.markdown("""
+        <h1 style='text-align: center; color: #1E88E5; padding-bottom: 20px;'>
+            Evaluation Results
+        </h1>
+    """, unsafe_allow_html=True)
+    
+    # Basic Information in a nice container
+    with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("### 🔒 Security Considerations")
-            for sec in feedback['security_considerations']:
-                st.markdown(f"- {sec}")
+            st.markdown(f"**Language:** {feedback['language']}")
         with col2:
-            st.markdown("### ⚡ Performance Insights")
-            st.markdown(f"**Efficiency:** {feedback['performance_insights']['efficiency']}")
-            st.markdown("**Bottlenecks:**")
-            for bottleneck in feedback['performance_insights']['bottlenecks']:
-                st.markdown(f"- {bottleneck}")
+            # Score with color based on value
+            score = feedback['score']
+            color = '#00C853' if score >= 4 else '#FFB300' if score >= 3 else '#E53935'
+            st.markdown(
+                f"**Score:** <span style='color: {color}; font-size: 18px;'>"
+                f"{score:.1f}/5.0</span>",
+                unsafe_allow_html=True
+            )
+    
+    # Scoring Explanation with dark mode compatible styling
+    st.markdown("### 📝 Scoring Explanation")
+    st.markdown(
+        f"""<div style='
+            background-color: rgba(255, 255, 255, 0.1); 
+            color: inherit;
+            padding: 15px; 
+            border-radius: 5px; 
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;'>
+            {feedback['scoring_explanation']}
+        </div>""", 
+        unsafe_allow_html=True
+    )
+    
+    # Issues Section with better formatting
+    if feedback.get('issues'):
+        st.markdown("### 🔍 Identified Issues")
+        
+        for issue in feedback['issues']:
+            with st.container():
+                # Severity badge with appropriate color
+                severity = issue['severity'].lower()
+                severity_color = {
+                    'low': '#2196F3',      # Blue
+                    'medium': '#FF9800',    # Orange
+                    'high': '#F44336'       # Red
+                }.get(severity, '#757575')  # Grey as default
+                
+                # Issue header with severity badge
+                st.markdown(
+                    f"""<div style='margin-bottom: 10px;'>
+                        <span style='font-size: 16px; font-weight: bold;'>Issue:</span>
+                        <span style='background-color: {severity_color}; color: white; 
+                              padding: 2px 8px; border-radius: 10px; margin-left: 10px; 
+                              font-size: 12px;'>
+                            {issue['severity']}
+                        </span>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+                
+                # Issue description
+                st.markdown(
+                    f"""<div style='margin-left: 20px; margin-bottom: 10px;'>
+                        {issue['description']}
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+                
+                # Fix suggestion in a distinct box
+                st.markdown(
+                    f"""<div style='
+                        margin-left: 20px; 
+                        padding: 10px; 
+                        background-color: rgba(30, 136, 229, 0.1); 
+                        border-left: 4px solid #1E88E5; 
+                        border-radius: 4px;
+                        color: inherit;'>
+                        <span style='font-weight: bold;'>Fix:</span> {issue['fix']}
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+                
+                # Separator between issues
+                st.markdown("<hr style='margin: 15px 0; opacity: 0.2;'>", unsafe_allow_html=True)
 
 def cleanup():
     """Clean up temporary files"""

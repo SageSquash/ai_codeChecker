@@ -246,40 +246,41 @@ class Test{class_name}(unittest.TestCase):
             'unittest_code': unittest_code
         }
 
+
     def generate_feedback(self, test_output: str, code: str) -> Dict:
         """Generate feedback based on test results"""
         try:
             print("\n=== Parsing Test Results ===")
-            
+        
             # Improved test result parsing
             # Look for the summary line that shows total tests run
             summary_match = re.search(r'Ran (\d+) tests? in', test_output)
             total_tests = int(summary_match.group(1)) if summary_match else 0
-            
+        
             # Count passed tests (tests that show "ok")
             passed = len(re.findall(r' \.\.\. ok', test_output))
-            
+        
             # Count failed tests (tests that show "FAIL")
             failed = len(re.findall(r' \.\.\. FAIL', test_output))
-            
+        
             # Count error tests (tests that show "ERROR")
             errors = len(re.findall(r' \.\.\. ERROR', test_output))
-            
+        
             print(f"Found: {total_tests} total, {passed} passed, {failed} failed, {errors} errors")
-            
+        
             # Calculate metrics
             pass_percentage = (passed / total_tests * 100) if total_tests > 0 else 0
             score = (passed / total_tests * 5) if total_tests > 0 else 0
-            
+        
             print(f"Pass rate: {pass_percentage:.1f}%")
             print(f"Initial score: {score:.1f}/5.0")
-            
+        
             try:
                 print("\n=== Attempting AI Feedback Generation ===")
                 # Try AI feedback
                 prompt = f"""
-                Generate test analysis feedback in JSON format for these test results:
-                
+                Analyze these test results and provide feedback. Return only a JSON object without any additional text or formatting.
+
                 Test Summary:
                 - Total tests: {total_tests}
                 - Passed: {passed}
@@ -290,7 +291,7 @@ class Test{class_name}(unittest.TestCase):
                 Test Output:
                 {test_output}
                 
-                Respond only with a JSON object in this exact format:
+                Return exactly this JSON structure:
                 {{
                     "score": {score},
                     "summary": {{
@@ -314,6 +315,12 @@ class Test{class_name}(unittest.TestCase):
                             "Consider adding more edge cases",
                             "Add performance tests"
                         ]
+                    }},
+                    "security_considerations": [],
+                    "performance_insights": {{
+                        "efficiency": "Good",
+                        "bottlenecks": [],
+                        "optimization_suggestions": []
                     }}
                 }}
                 """
@@ -326,11 +333,24 @@ class Test{class_name}(unittest.TestCase):
                     print("Parsing AI response...")
                     # Clean the response text
                     response_text = response.text.strip()
+                    
+                    # Remove "JSON" prefix if present
+                    if response_text.startswith("JSON"):
+                        response_text = response_text[4:].strip()
+                    
                     # Remove any markdown formatting if present
                     if "```json" in response_text:
                         response_text = response_text.split("```json")[1].split("```")[0].strip()
                     elif "```" in response_text:
                         response_text = response_text.split("```")[1].strip()
+                    
+                    print("\nCleaned response text:")
+                    print(response_text)
+                    
+                    # Try to find JSON object in the response
+                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if json_match:
+                        response_text = json_match.group(0)
                     
                     feedback = json.loads(response_text)
                     print("Successfully parsed AI feedback")
@@ -344,6 +364,7 @@ class Test{class_name}(unittest.TestCase):
                         "errors": errors
                     }
                     feedback['code_quality']['test_coverage'] = f"{pass_percentage:.1f}%"
+                    feedback['ai_generated'] = True
                     
                     print("=== Using AI-Generated Feedback ===")
                     return feedback
@@ -358,7 +379,7 @@ class Test{class_name}(unittest.TestCase):
                 print(f"AI feedback generation failed: {e}")
                 print("Falling back to calculated feedback")
                 return self._generate_calculated_feedback(total_tests, passed, failed, errors)
-                    
+                
         except Exception as e:
             print(f"Error in feedback generation: {e}")
             print("Falling back to basic calculated feedback")

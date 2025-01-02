@@ -54,7 +54,7 @@ class TestGenerator:
                         'is_method': isinstance(node.parent, ast.ClassDef) if hasattr(node, 'parent') else False
                     }
                     analysis['functions'].append(func_info)
-                
+
                 elif isinstance(node, ast.ClassDef):
                     class_info = {
                         'name': node.name,
@@ -83,7 +83,7 @@ class TestGenerator:
         try:
             analysis = self.analyze_code(code, file_path)
             prompt = self._generate_prompt(code, analysis)
-            
+
             print("\nGenerating tests...")
             response = self.model.generate_content(prompt)
             response_text = response.text
@@ -247,72 +247,81 @@ class Test{class_name}(unittest.TestCase):
         }
 
     def generate_feedback(self, test_output: str, code: str) -> Dict:
-        """Generate feedback based on test results"""
+        """Generate detailed feedback based on test results and code analysis."""
         try:
             print("\n=== Parsing Test Results ===")
-        
+
             # Test result parsing
             summary_match = re.search(r'Ran (\d+) tests? in', test_output)
             total_tests = int(summary_match.group(1)) if summary_match else 0
             passed = len(re.findall(r' \.\.\. ok', test_output))
             failed = len(re.findall(r' \.\.\. FAIL', test_output))
             errors = len(re.findall(r' \.\.\. ERROR', test_output))
-            
+
             print(f"Found: {total_tests} total, {passed} passed, {failed} failed, {errors} errors")
-            
+
             # Calculate metrics
             pass_percentage = (passed / total_tests * 100) if total_tests > 0 else 0
             score = (passed / total_tests * 5) if total_tests > 0 else 0
-            
+
             print(f"Pass rate: {pass_percentage:.1f}%")
             print(f"Initial score: {score:.1f}/5.0")
-            
+
             try:
                 print("\n=== Attempting AI Feedback Generation ===")
                 prompt = f"""
-                Analyze these test results and provide detailed feedback. Return only a JSON object without any additional text or formatting.
+You are an expert Python developer and code reviewer. Analyze the following test results and code. Provide detailed, constructive, and specific feedback focusing on technical accuracy, code quality, best practices, and potential improvements. Return only a JSON object without any additional text or formatting.
 
-                Test Summary:
-                - Total tests: {total_tests}
-                - Passed: {passed}
-                - Failed: {failed}
-                - Errors: {errors}
-                - Pass rate: {pass_percentage:.1f}%
-                
-                Test Output:
-                {test_output}
-                
-                Code:
-                {code}
-                
-                Return exactly this JSON structure:
-                {{
-                    "language": "python3",
-                    "score": {score},
-                    "scoring_explanation": "Detailed analysis of the code's performance, including test results, code quality, and areas for improvement. Consider test coverage of {pass_percentage:.1f}%, with {passed} passed tests out of {total_tests} total tests.",
-                    "issues": [
-                        {{
-                            "description": "Identify specific issue from code or tests",
-                            "severity": "Low/Medium/High",
-                            "fix": "Specific suggestion to fix the issue"
-                        }},
-                        {{
-                            "description": "Another specific issue if found",
-                            "severity": "Low/Medium/High",
-                            "fix": "Specific suggestion to fix the issue"
-                        }}
-                    ]
-                }}
-                """
-                
+**Test Summary**
+- Total tests: {total_tests}
+- Passed: {passed}
+- Failed: {failed}
+- Errors: {errors}
+- Pass rate: {pass_percentage:.1f}%
+
+**Test Output**
+{test_output}
+
+**Code**
+{code}
+
+**Instructions**
+1. Analyze the test results to identify failures or errors and their causes.
+2. Review the code for potential issues, bugs, or areas that do not follow best practices.
+3. Provide specific suggestions for improvements, optimizations, and corrections.
+4. Highlight any exemplary code segments or practices demonstrated.
+5. Consider code readability, efficiency, and maintainability.
+
+**Return exactly this JSON structure**:
+
+{{
+    "language": "python3",
+    "score": {score},
+    "scoring_explanation": "A detailed analysis of the code's performance, including test results interpretation, code quality assessment, and areas for improvement. Consider that the code passed {passed} out of {total_tests} tests ({pass_percentage:.1f}% pass rate).",
+    "issues": [
+        {{
+            "description": "First specific issue identified in the code or tests.",
+            "severity": "Low" or "Medium" or "High",
+            "fix": "Detailed suggestion on how to fix this issue."
+        }},
+        {{
+            "description": "Second specific issue identified in the code or tests.",
+            "severity": "Low" or "Medium" or "High",
+            "fix": "Detailed suggestion on how to fix this issue."
+        }}
+        // Include additional issues if found
+    ]
+}}
+"""
+
                 print("Sending request to AI model...")
                 response = self.model.generate_content(prompt)
                 print("Received response from AI model")
-                
+
                 try:
                     print("Parsing AI response...")
-                    response_text = response.text.strip()
-                    
+                    response_text = response.text if hasattr(response, 'text') else str(response.candidates[0].content.parts[0].text)
+
                     # Clean up response formatting
                     if response_text.startswith("JSON"):
                         response_text = response_text[4:].strip()
@@ -320,37 +329,37 @@ class Test{class_name}(unittest.TestCase):
                         response_text = response_text.split("```json")[1].split("```")[0].strip()
                     elif "```" in response_text:
                         response_text = response_text.split("```")[1].strip()
-                    
+
                     print("\nCleaned response text:")
                     print(response_text)
-                    
+
                     json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                     if json_match:
                         response_text = json_match.group(0)
-                    
+
                     feedback = json.loads(response_text)
                     print("Successfully parsed AI feedback")
-                    
+
                     # Ensure score is consistent
                     feedback['score'] = score
-                    
+
                     print("=== Using AI-Generated Feedback ===")
                     return feedback
-                    
+
                 except json.JSONDecodeError as e:
                     print(f"Failed to parse AI response: {e}")
                     return self._generate_calculated_feedback(total_tests, passed, failed, errors)
-                    
+
             except Exception as e:
                 print(f"AI feedback generation failed: {e}")
                 return self._generate_calculated_feedback(total_tests, passed, failed, errors)
-                
+
         except Exception as e:
             print(f"Error in feedback generation: {e}")
             return self._generate_calculated_feedback(0, 0, 0, 0)
 
     def _generate_calculated_feedback(self, total_tests, passed, failed, errors):
-        """Generate basic feedback when AI generation fails"""
+        """Generate basic feedback when AI generation fails."""
         score = (passed / total_tests * 5) if total_tests > 0 else 0
         return {
             "language": "python3",
@@ -358,9 +367,9 @@ class Test{class_name}(unittest.TestCase):
             "scoring_explanation": f"Basic automated evaluation based on test results. Passed {passed} out of {total_tests} tests.",
             "issues": [
                 {
-                    "description": "Automated evaluation due to feedback generation failure",
+                    "description": "Automated evaluation due to feedback generation failure.",
                     "severity": "Low",
-                    "fix": "Try running the evaluation again or check the test output manually"
+                    "fix": "Try running the evaluation again or check the test output manually."
                 }
             ]
         }

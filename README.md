@@ -23,4 +23,5 @@ Technical Stack:
 - Custom test execution framework
 - Advanced regex parsing for test result analysis
 - JSON-based structured feedback system
-- This project showcases the practical implementation of AI/LLM technology in software development workflows, demonstrating both technical expertise and an understanding of real-world developer needs.
+
+This project showcases the practical implementation of AI/LLM technology in software development workflows, demonstrating both technical expertise and an understanding of real-world developer needs.

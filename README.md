@@ -33,3 +33,6 @@ The AI Code Checker stands out for its ability to provide **contextual, nuanced 
 ## Why AI Code Checker?
 
 This project showcases the practical implementation of **AI/LLM technology** in software development workflows. It demonstrates both **technical expertise** and a deep understanding of **real-world developer needs**, making it an invaluable tool for improving code quality and developer productivity.
+
+<img width="1472" alt="Screenshot 2025-01-04 at 8 54 28 PM" src="https://github.com/user-attachments/assets/9ae8dbdd-b0f6-4d8e-ab35-c68b53c92790" />
+

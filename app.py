@@ -29,11 +29,22 @@ def init_session_state():
             st.session_state[key] = default_value
 
 def reset_state():
+    """Reset all session state variables and clean up temporary files"""
+    # First clean up temporary files
+    cleanup()
     
-    cleanup()  # Clean up any temporary files
+    # Clear sys.modules cache of our temporary modules
+    for key in list(sys.modules.keys()):
+        if 'uploaded_code' in key or 'test_uploaded_code' in key:
+            del sys.modules[key]
+    
+    # Reset session state
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+    
+    # Reinitialize session state
     init_session_state()
+
 
 def generate_basic_feedback(test_output: str) -> dict:
     """Generate basic feedback when AI generation fails"""
@@ -352,14 +363,29 @@ def display_feedback(feedback):
                 st.markdown("<hr style='margin: 15px 0; opacity: 0.2;'>", unsafe_allow_html=True)
 
 def cleanup():
-    """Clean up temporary files"""
+    """Clean up temporary files and remove from sys.path"""
     try:
+        # Remove temporary directory from sys.path if it exists
+        if st.session_state.temp_dir and st.session_state.temp_dir in sys.path:
+            sys.path.remove(st.session_state.temp_dir)
+        
+        # Delete temporary directory
         if st.session_state.temp_dir and os.path.exists(st.session_state.temp_dir):
             import shutil
             shutil.rmtree(st.session_state.temp_dir)
             st.session_state.temp_dir = None
+        
+        # Clear module cache
+        for key in list(sys.modules.keys()):
+            if 'uploaded_code' in key or 'test_uploaded_code' in key:
+                del sys.modules[key]
     except Exception as e:
         st.warning(f"Error during cleanup: {e}")
+
+def cleanup_and_rerun():
+    """Clean up and trigger a rerun of the app"""
+    cleanup()
+    st.rerun()
 
 def main():
     st.set_page_config(
@@ -384,7 +410,8 @@ def main():
         if st.button("Reset All"):
             if st.button("Confirm Reset"):
                 reset_state()
-                st.rerun()
+                cleanup_and_rerun()
+                
     
         st.markdown("---")
         st.markdown("---")
@@ -431,6 +458,8 @@ def main():
                 st.session_state.code_content = current_code
 
         if st.button("Generate Tests", disabled=not (api_key and st.session_state.code_content)):
+            # Clean up before generating new tests
+            cleanup()
             st.session_state.generated_tests = None
             st.session_state.test_results = None
 

@@ -6,7 +6,7 @@ from typing import Dict
 class Config:
     """Configuration settings for the application"""
     GOOGLE_API_KEY: str = os.getenv('GOOGLE_API_KEY', '')
-    MODEL_NAME: str = 'gemini-pro'
+    MODEL_NAME: str = 'gemini-2.0-flash-exp'
     
     # File paths and directories
     OUTPUT_DIR: str = 'output'

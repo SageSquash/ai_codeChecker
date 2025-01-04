@@ -330,6 +330,11 @@ You are an expert Python developer and code reviewer. Analyze the following test
                     elif "```" in response_text:
                         response_text = response_text.split("```")[1].strip()
 
+                    # Remove any comments from the JSON
+                    response_text = re.sub(r'//.*?\n', '\n', response_text)
+                    # Remove trailing commas
+                    response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
+
                     print("\nCleaned response text:")
                     print(response_text)
 

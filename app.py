@@ -14,16 +14,26 @@ import time
 
 def init_session_state():
     """Initialize session state variables"""
-    if 'test_results' not in st.session_state:
-        st.session_state.test_results = None
-    if 'feedback' not in st.session_state:
-        st.session_state.feedback = None
-    if 'code_content' not in st.session_state:
-        st.session_state.code_content = None
-    if 'generated_tests' not in st.session_state:
-        st.session_state.generated_tests = None
-    if 'temp_dir' not in st.session_state:
-        st.session_state.temp_dir = None
+    default_states = {
+        'test_results': None,
+        'feedback': None,
+        'code_content': None,
+        'generated_tests': None,
+        'temp_dir': None,
+        'current_file': None,
+        'current_code': None
+    }
+    
+    for key, default_value in default_states.items():
+        if key not in st.session_state:
+            st.session_state[key] = default_value
+
+def reset_state():
+    
+    cleanup()  # Clean up any temporary files
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    init_session_state()
 
 def generate_basic_feedback(test_output: str) -> dict:
     """Generate basic feedback when AI generation fails"""
@@ -71,7 +81,11 @@ def generate_basic_feedback(test_output: str) -> dict:
 def save_uploaded_code(code_content):
     """Save the code to a temporary file and return the file path"""
     try:
-        # Create a temporary directory
+        # Cleanup any existing temp directory
+        if st.session_state.temp_dir and os.path.exists(st.session_state.temp_dir):
+            cleanup()
+        
+        # Create a new temporary directory
         temp_dir = tempfile.mkdtemp()
         st.session_state.temp_dir = temp_dir
         
@@ -243,7 +257,8 @@ def run_unittest_file(unittest_path: str, generator: TestGenerator, original_cod
             status_container.empty()
         if 'debug_container' in locals():
             debug_container.empty()
-            
+        # Do not call cleanup() here
+
 def display_feedback(feedback):
     """Display formatted feedback in Streamlit with enhanced styling for both modes"""
     
@@ -338,13 +353,13 @@ def display_feedback(feedback):
 
 def cleanup():
     """Clean up temporary files"""
-    if st.session_state.temp_dir and os.path.exists(st.session_state.temp_dir):
-        import shutil
-        try:
+    try:
+        if st.session_state.temp_dir and os.path.exists(st.session_state.temp_dir):
+            import shutil
             shutil.rmtree(st.session_state.temp_dir)
             st.session_state.temp_dir = None
-        except Exception as e:
-            st.warning(f"Error cleaning up temporary files: {e}")
+    except Exception as e:
+        st.warning(f"Error during cleanup: {e}")
 
 def main():
     st.set_page_config(
@@ -364,6 +379,14 @@ def main():
     with st.sidebar:
         st.header("Configuration")
         api_key = st.text_input("Google API Key", type="password")
+
+        # Add reset button with confirmation
+        if st.button("Reset All"):
+            if st.button("Confirm Reset"):
+                reset_state()
+                st.rerun()
+    
+        st.markdown("---")
         st.markdown("---")
         st.markdown("### About")
         st.markdown("""
@@ -376,7 +399,6 @@ def main():
 
     # Main content
     tab1, tab2, tab3 = st.tabs(["Code Input", "Generated Tests", "Results & Feedback"])
-
     with tab1:
         st.header("Code Input")
         input_method = st.radio(
@@ -388,24 +410,35 @@ def main():
         if input_method == "Upload Python File":
             uploaded_file = st.file_uploader("Upload Python file", type=["py"])
             if uploaded_file:
+                # Reset state when new file is uploaded
+                if st.session_state.current_file != uploaded_file.name:
+                    reset_state()
+                    st.session_state.current_file = uploaded_file.name
+
                 st.session_state.code_content = uploaded_file.getvalue().decode("utf-8")
                 st.code(st.session_state.code_content, language="python")
         else:
-            st.session_state.code_content = st.text_area(
+            current_code = st.text_area(
                 "Paste your Python code here",
                 height=300,
                 help="Enter your Python code here"
             )
 
+            # Update state when code changes
+            if current_code != st.session_state.current_code:
+                reset_state()
+                st.session_state.current_code = current_code
+                st.session_state.code_content = current_code
+
         if st.button("Generate Tests", disabled=not (api_key and st.session_state.code_content)):
+            st.session_state.generated_tests = None
+            st.session_state.test_results = None
+
             with st.spinner("Generating tests..."):
                 try:
-                    # Initialize test generator
                     generator = TestGenerator(api_key)
-                    
-                    # Process the code
                     results = generator.process_code(st.session_state.code_content, "uploaded_code.py")
-                    
+
                     if results:
                         st.session_state.generated_tests = results
                         st.success("Tests generated successfully!")
@@ -428,6 +461,7 @@ def main():
             
             # Run tests button
             if st.button("Run Tests"):
+                # Do not call cleanup() here
                 with st.spinner("Running tests..."):
                     try:
                         # Save the original code
@@ -441,6 +475,11 @@ def main():
                         with open(test_path, "w") as f:
                             f.write(st.session_state.generated_tests['unittest_code'])
                         
+                        # Add __init__.py to make it a package
+                        init_path = os.path.join(temp_dir, "__init__.py")
+                        with open(init_path, "w") as f:
+                            f.write("")
+                        
                         # Run tests
                         generator = TestGenerator(api_key)
                         results = run_unittest_file(
@@ -452,23 +491,22 @@ def main():
                         
                         if results:
                             st.session_state.test_results = results
-                            st.success("Tests completed successfully!")
+                            st.success("Tests completed!")
                         
                     except Exception as e:
                         st.error(f"Error running tests: {e}")
-                        st.exception(e)  # This will show the full traceback
-                    finally:
-                        cleanup()
+                        st.exception(e)
+                    # Do not call cleanup() here
 
     with tab3:
         if st.session_state.test_results:
             st.header("Test Results")
-            
+
             # Display test results
             result = st.session_state.test_results['result']
             with st.expander("Test Output", expanded=True):
                 st.text(st.session_state.test_results['output'])
-            
+
             # Display metrics
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -479,7 +517,7 @@ def main():
                 st.metric("Failed", len(result.failures))
             with col4:
                 st.metric("Errors", len(result.errors))
-            
+
             # Display feedback
             if st.session_state.test_results['feedback']:
                 display_feedback(st.session_state.test_results['feedback'])

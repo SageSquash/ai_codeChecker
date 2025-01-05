@@ -1,26 +1,27 @@
-# Base image
 FROM python:3.9-slim
 
-# Set working directory
+# Create a non-root user
+RUN useradd -m -u 1000 testuser
+
 WORKDIR /app
 
-# Install system dependencies
+# Install basic requirements and system packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    bash \
+    gcc \
+    python3-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy and install requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install basic Python packages
+RUN pip install --no-cache-dir pytest unittest2 pip setuptools wheel
 
-# Create test directory
-RUN mkdir -p /app/test_files
+# Create and set permissions for package installation directory
+RUN mkdir -p /app/.local && \
+    chown -R testuser:testuser /app
 
-# Set Python path
-ENV PYTHONPATH=/app
+# Switch to non-root user
+USER testuser
 
-# Default command (can be overridden)
-CMD ["python"]
+# Keep container running
+CMD ["python", "-m", "unittest"]

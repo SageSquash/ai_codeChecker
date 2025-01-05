@@ -24,13 +24,52 @@ logger = logging.getLogger(__name__)
 class PackageDetector:
     def __init__(self):
         self.required_packages = set()
-        self.installed_packages = self._get_installed_packages()
+        self.installed_packages = self.get_installed_packages()
+        # Add common package mappings
+        self.package_mappings = {
+            'np': 'numpy',
+            'pd': 'pandas',
+            'plt': 'matplotlib',
+            'tf': 'tensorflow',
+            'torch': 'pytorch',
+            'cv2': 'opencv-python',
+            'sk': 'scikit-learn'
+        }
+        # Standard library modules
+        self.stdlib_modules = self._get_stdlib_modules()
 
-    def _get_installed_packages(self):
+    def _get_stdlib_modules(self):
+        """Get a set of standard library module names"""
+        import sys
+        import distutils.sysconfig as sysconfig
+        import os
+
+        stdlib_path = sysconfig.get_python_lib(standard_lib=True)
+        stdlib_modules = set()
+        
+        # Add known standard modules
+        stdlib_modules.update([
+            'abc', 'argparse', 'ast', 'asyncio', 'base64', 'collections', 
+            'concurrent', 'contextlib', 'copy', 'csv', 'datetime', 'decimal', 
+            'difflib', 'enum', 'fileinput', 'fnmatch', 'functools', 'glob', 
+            'gzip', 'hashlib', 'heapq', 'hmac', 'html', 'http', 'importlib', 
+            'inspect', 'io', 'itertools', 'json', 'logging', 'math', 'multiprocessing', 
+            'operator', 'os', 'pathlib', 'pickle', 'platform', 'pprint', 'random', 
+            're', 'shutil', 'signal', 'socket', 'sqlite3', 'statistics', 'string', 
+            'subprocess', 'sys', 'tempfile', 'threading', 'time', 'traceback', 
+            'types', 'typing', 'unittest', 'urllib', 'uuid', 'warnings', 'weakref', 
+            'xml', 'zipfile'
+        ])
+
+        return stdlib_modules
+
+    def get_installed_packages(self):
+        """Get list of installed packages"""
         import pkg_resources
         return {pkg.key for pkg in pkg_resources.working_set}
 
     def scan_for_imports(self, code_content):
+        """Scan code for import statements"""
         import ast
         try:
             tree = ast.parse(code_content)
@@ -38,25 +77,31 @@ class PackageDetector:
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         package = alias.name.split('.')[0]
-                        self.required_packages.add(package)
+                        # Check package mappings
+                        if package in self.package_mappings:
+                            package = self.package_mappings[package]
+                        if not self._is_stdlib_package(package):
+                            self.required_packages.add(package)
                 elif isinstance(node, ast.ImportFrom):
                     if node.module:
                         package = node.module.split('.')[0]
-                        self.required_packages.add(package)
+                        # Check package mappings
+                        if package in self.package_mappings:
+                            package = self.package_mappings[package]
+                        if not self._is_stdlib_package(package):
+                            self.required_packages.add(package)
         except Exception as e:
             logger.error(f"Error scanning imports: {e}")
+            return set()
         
-        self.required_packages = {
-            pkg for pkg in self.required_packages 
-            if not self._is_stdlib_package(pkg)
-        }
         return self.required_packages
 
     def _is_stdlib_package(self, package_name):
-        import sys
-        return package_name in sys.stdlib_module_names
+        """Check if package is part of Python standard library"""
+        return package_name in self.stdlib_modules
 
     def get_missing_packages(self):
+        """Get list of packages that need to be installed"""
         return self.required_packages - self.installed_packages
 
 class DockerTestRunner:
@@ -80,22 +125,67 @@ class DockerTestRunner:
                     f.write(test_content)
                 with open(init_path, 'w') as f:
                     f.write('')
+
+                # Detect and write requirements
+                package_detector = PackageDetector()
+                required_packages = package_detector.scan_for_imports(code_content)
+                requirements_path = os.path.join(temp_dir, 'requirements.txt')
+                with open(requirements_path, 'w') as f:
+                    for package in required_packages:
+                        f.write(f"{package}\n")
                 
+                # Create setup script with user-specific pip install
+                setup_script = os.path.join(temp_dir, 'setup.sh')
+                with open(setup_script, 'w') as f:
+                    f.write("""#!/bin/bash
+                        if [ -f requirements.txt ]; then
+                            pip install --user -r requirements.txt 2>/dev/null
+                        fi
+                        python -m unittest -v test_uploaded_code.py
+                    """)
+                
+                # Set execute permission for setup script
+                os.chmod(setup_script, 0o755)
+
                 # Run container
-                container = self.client.containers.run(
-                    f"{self.image_name}:{self.image_tag}",
-                    command=['python', '-m', 'unittest', '-v', 'test_uploaded_code.py'],
-                    volumes={
-                        temp_dir: {'bind': '/app', 'mode': 'rw'}
-                    },
-                    working_dir='/app',
-                    remove=True,
-                    detach=False,
-                    stdout=True,
-                    stderr=True
-                )
-                
-                return container.decode('utf-8')
+                try:
+                    container = self.client.containers.run(
+                        f"{self.image_name}:{self.image_tag}",
+                        command=['bash', 'setup.sh'],
+                        volumes={
+                            temp_dir: {'bind': '/app', 'mode': 'rw'}
+                        },
+                        working_dir='/app',
+                        remove=True,
+                        detach=False,
+                        stdout=True,
+                        stderr=True,
+                        user='1000:1000'  # Run as testuser
+                    )
+                    
+                    output = container.decode('utf-8')
+                    # Filter out pip warnings
+                    output_lines = [
+                        line for line in output.split('\n')
+                        if not line.startswith('WARNING:') and 
+                           not line.startswith('[notice]') and
+                           line.strip()
+                    ]
+                    return '\n'.join(output_lines)
+                    
+                except docker.errors.ContainerError as e:
+                    # Extract actual test output from error
+                    if e.stderr:
+                        error_output = e.stderr.decode('utf-8')
+                        # Filter out pip warnings
+                        error_lines = [
+                            line for line in error_output.split('\n')
+                            if not line.startswith('WARNING:') and 
+                               not line.startswith('[notice]') and
+                               line.strip()
+                        ]
+                        return '\n'.join(error_lines)
+                    raise
                 
         except Exception as e:
             logger.error(f"Docker test execution error: {e}")

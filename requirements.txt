@@ -1,9 +1,19 @@
-google-generativeai
-pytest
-typing
+# Core dependencies
+streamlit
 python-dotenv
+docker
+
+# Testing and code quality
+pytest
+unittest2
 coverage
-black
 flake8
 mypy
-streamlit
+
+# AI and typing
+google-generativeai
+typing
+
+# Additional dependencies for testing
+numpy
+pandas

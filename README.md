@@ -1,5 +1,6 @@
-```markdown
-![WhatsApp Image 2025-01-04 at 20 06 39](https://github.com/user-attachments/assets/2c52a852-fbed-46da-a082-d15c8609a35b)
+<img width="750" alt="Screenshot 2025-01-05 at 7 59 35 PM" src="https://github.com/user-attachments/assets/7e772eb4-fa01-4c67-a20c-59ec496a15f8" />
+<img width="750" alt="Screenshot 2025-01-05 at 7 59 56 PM" src="https://github.com/user-attachments/assets/52770134-91dd-45a8-8a94-d8ca9f092f86" />
+
 # AI Code Checker
 
 AI Code Checker is an innovative tool that leverages **Large Language Models (LLMs)** to provide intelligent code analysis and feedback. By combining **automated testing** with **AI-powered code review**, the tool delivers comprehensive, human-like feedback on code quality, implementation, and potential improvements.
@@ -125,4 +126,3 @@ Contributions are welcome! Please feel free to submit pull requests, create issu
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-```

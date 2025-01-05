@@ -50,7 +50,7 @@ AI Code Checker is an innovative tool that leverages **Large Language Models (LL
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ai-code-checker.git](https://github.com/SageSquash/ai_codeChecker.git
+https://github.com/SageSquash/ai_codeChecker.git
 
 # Navigate to project directory
 cd ai-code-checker

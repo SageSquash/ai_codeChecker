@@ -314,7 +314,7 @@ class Test{class_name}(unittest.TestCase):
             'test_cases': test_cases,
             'unittest_code': unittest_code
         }
-
+    
     def generate_feedback(self, test_output: str, code: str) -> Dict:
         """Generate detailed feedback based on test results and code analysis."""
         try:
@@ -339,49 +339,61 @@ class Test{class_name}(unittest.TestCase):
             try:
                 print("\n=== Attempting AI Feedback Generation ===")
                 prompt = f"""
-You are an expert Python developer and code reviewer. Analyze the following test results and code. Provide detailed, constructive, and specific feedback focusing on technical accuracy, code quality, best practices, and potential improvements. Return only a JSON object without any additional text or formatting.
+    You are an expert Python developer and code reviewer.
 
-**Test Summary**
-- Total tests: {total_tests}
-- Passed: {passed}
-- Failed: {failed}
-- Errors: {errors}
-- Pass rate: {pass_percentage:.1f}%
+    **Task:**
+    Analyze the following test results and code. Provide detailed, constructive, and specific feedback focusing on technical accuracy, code quality, best practices, and potential improvements.
 
-**Test Output**
-{test_output}
+    **Instructions:**
+    - Review the test results to identify any failures or errors and determine their causes.
+    - Analyze the code for potential issues, bugs, or areas that do not follow best practices.
+    - Highlight any exemplary code segments or practices demonstrated.
+    - Consider aspects such as code readability, efficiency, performance, security, and maintainability.
+    - Provide actionable suggestions for improvements, optimizations, and corrections.
+    - Prioritize the issues based on their severity.
 
-**Code**
-{code}
+    **Severity Levels:**
+    - **High:** Critical issues that could cause errors, data loss, or significant bugs.
+    - **Medium:** Important problems that may affect performance, readability, or maintainability.
+    - **Low:** Minor issues like coding style inconsistencies or minor optimizations.
 
-**Instructions**
-1. Analyze the test results to identify failures or errors and their causes.
-2. Review the code for potential issues, bugs, or areas that do not follow best practices.
-3. Provide specific suggestions for improvements, optimizations, and corrections.
-4. Highlight any exemplary code segments or practices demonstrated.
-5. Consider code readability, efficiency, and maintainability.
+    **Test Summary:**
+    - Total tests: {total_tests}
+    - Passed: {passed}
+    - Failed: {failed}
+    - Errors: {errors}
+    - Pass rate: {pass_percentage:.1f}%
 
-**Return exactly this JSON structure**:
+    **Test Output:**
+    {test_output}
 
-{{
-    "language": "python3",
-    "score": {score},
-    "scoring_explanation": "A detailed analysis of the code's performance, including test results interpretation, code quality assessment, and areas for improvement. Consider that the code passed {passed} out of {total_tests} tests ({pass_percentage:.1f}% pass rate).",
-    "issues": [
-        {{
-            "description": "First specific issue identified in the code or tests.",
-            "severity": "Low" or "Medium" or "High",
-            "fix": "Detailed suggestion on how to fix this issue."
-        }},
-        {{
-            "description": "Second specific issue identified in the code or tests.",
-            "severity": "Low" or "Medium" or "High",
-            "fix": "Detailed suggestion on how to fix this issue."
-        }}
-        // Include additional issues if found
-    ]
-}}
-"""
+    **Code Under Review:**
+    {code}
+
+    **Return exactly this JSON structure**:
+    {{
+        "language": "python3",
+        "score": {score},
+        "scoring_explanation": "Provide a detailed analysis explaining the score. Your explanation must include: 1) A summary of the test results ({passed} out of {total_tests} tests passed, {pass_percentage:.1f}% pass rate). 2) At least **three specific examples** from the code that demonstrate strengths or areas for improvement. 3) For each example, explain how it affects the score and why. 4) Offer concrete suggestions or commendations related to these examples. **Avoid general statements and ensure all points are directly tied to specific parts of the code.**",
+        "issues": [
+            {{
+                "description": "First specific issue identified in the code or tests.",
+                "severity": "Low" or "Medium" or "High",
+                "fix": "Detailed suggestion on how to fix this issue."
+            }},
+            {{
+                "description": "Second specific issue identified in the code or tests.",
+                "severity": "Low" or "Medium" or "High",
+                "fix": "Detailed suggestion on how to fix this issue."
+            }}
+            // Include additional issues if found
+        ],
+        "strengths": [
+            "Highlight positive aspects of the code here."
+            // Include additional strengths if found
+        ]
+    }}
+    """
 
                 print("Sending request to AI model...")
                 response = self.model.generate_content(prompt)
@@ -403,6 +415,12 @@ You are an expert Python developer and code reviewer. Analyze the following test
                     response_text = re.sub(r'//.*?\n', '\n', response_text)
                     # Remove trailing commas
                     response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
+                    # Remove newlines and extra spaces within JSON strings
+                    # response_text = re.sub(r'(?<=":)\s*"[^"]*"', lambda m: m.group().replace('\n', ' ').replace('\r', ' '), response_text)
+                    # Fix unescaped quotes in JSON
+                    response_text = re.sub(r'(?<!\\)"([^"]*?)":', r'"\1":', response_text)
+                    # Remove non-printable characters
+                    response_text = re.sub(r'[^\x20-\x7E]', ' ', response_text)
 
                     print("\nCleaned response text:")
                     print(response_text)
@@ -410,6 +428,10 @@ You are an expert Python developer and code reviewer. Analyze the following test
                     json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                     if json_match:
                         response_text = json_match.group(0)
+                        # Additional cleaning for the extracted JSON
+                        # response_text = response_text.replace('\n', ' ').strip()
+                        # Fix potential issues with boolean values
+                        response_text = re.sub(r':\s*(true|false)', lambda m: ': ' + m.group(1).lower(), response_text)
 
                     feedback = json.loads(response_text)
                     print("Successfully parsed AI feedback")
@@ -431,7 +453,7 @@ You are an expert Python developer and code reviewer. Analyze the following test
         except Exception as e:
             print(f"Error in feedback generation: {e}")
             return self._generate_calculated_feedback(0, 0, 0, 0)
-
+    
     def _generate_calculated_feedback(self, total_tests, passed, failed, errors):
         """Generate basic feedback when AI generation fails."""
         score = (passed / total_tests * 5) if total_tests > 0 else 0

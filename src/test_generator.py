@@ -101,46 +101,115 @@ class TestGenerator:
             return self._generate_fallback_tests(code, file_path)
 
     def _generate_prompt(self, code: str, analysis: CodeAnalysis) -> str:
-        """Generate appropriate prompt based on code analysis"""
+        """Generate comprehensive prompt for test generation"""
+        # Format functions with signatures and docstrings
+        functions_list = '\n'.join([
+            f"- {func['name']}({', '.join(arg['name'] + ': ' + arg['type'] for arg in func['args'])})"
+            f"{' -> ' + func['returns'] if func.get('returns') else ''}"
+            f"\n  Doc: {func.get('docstring', 'No docstring')}"
+            for func in analysis.functions
+        ])
+    
+        # Format classes with methods and docstrings
+        classes_list = '\n'.join([
+            f"- {cls['name']}\n"
+            f"  Doc: {cls.get('docstring', 'No docstring')}\n"
+            f"  Methods:\n" +
+            '\n'.join([f"    • {m['name']}({', '.join(arg['name'] + ': ' + arg['type'] for arg in m['args'])})"
+                       f"{' -> ' + m['returns'] if m.get('returns') else ''}"
+                       for m in cls['methods']])
+            for cls in analysis.classes
+        ])
+    
         return f"""
-        Generate comprehensive unit tests for this Python code:
+        You are an expert Python developer and testing specialist tasked with creating professional-grade unit tests.
+    
+        === CODE TO TEST ===
         ```python
         {code}
         ```
-
-        Code Structure:
-        - Module: {analysis.module_name}
-        - Functions: {[f['name'] for f in analysis.functions]}
-        - Classes: {[c['name'] for c in analysis.classes]}
-
-        Requirements:
-        1. Generate complete unittest code with:
-           - Proper imports (including the module being tested)
-           - TestCase class(es) for functions and/or classes
-           - setUp and tearDown methods if needed
-           - Comprehensive test methods
-           - Main block for running tests
-
-        2. Include tests for:
-           - Normal cases (expected inputs/outputs)
-           - Edge cases (empty, boundary values)
-           - Error cases (invalid inputs)
-           - Type checking where appropriate
-
-        3. Use appropriate assertions:
-           - assertEqual for exact matches
-           - assertAlmostEqual for floats
-           - assertRaises for exceptions
-           - assertTrue/assertFalse for booleans
-           - assertIn for membership
-           - assertIsInstance for type checking
-
-        4. Include clear docstrings explaining each test's purpose
-
-        Return only the unittest code in this format:
+    
+        === CODE STRUCTURE ===
+        Module: {analysis.module_name}
+    
+        Functions:
+        {functions_list if functions_list else 'No functions defined'}
+    
+        Classes:
+        {classes_list if classes_list else 'No classes defined'}
+    
+        === TESTING REQUIREMENTS ===
+    
+        1. TEST ORGANIZATION:
+           - Create TestCase classes for each logical group of tests
+           - Follow naming: 'Test<ComponentName>' for classes, 'test_<function>_<scenario>' for methods
+           - Include setUp/tearDown methods where needed
+           - Group related tests together
+           - Add proper imports and main test runner block
+    
+        2. COVERAGE REQUIREMENTS:
+           A. Basic Functionality:
+              - Normal input/output cases
+              - Expected behavior verification
+              - Return value validation
+              - State changes verification
+    
+           B. Edge Cases:
+              - Empty inputs ([], '', {{}}, None)
+              - Boundary values (0, -1, maxint, etc.)
+              - Type variations (int/float/str conversions)
+              - Large inputs (performance consideration)
+    
+           C. Error Handling:
+              - Invalid inputs
+              - Type errors
+              - Value errors
+              - Expected exceptions
+              - Resource handling (files, connections)
+    
+        3. ASSERTION USAGE:
+           - assertEqual(a, b): Exact value matching
+           - assertAlmostEqual(a, b, places=7): Float comparisons
+           - assertTrue/assertFalse: Boolean conditions
+           - assertRaises(ErrorType): Exception testing
+           - assertIn(item, container): Membership testing
+           - assertIsInstance(obj, cls): Type checking
+           - assertIsNone/assertIsNotNone: None checking
+           - assertGreater/Less/Equal: Numeric comparisons
+    
+        4. BEST PRACTICES:
+           - Each test should focus on ONE specific scenario
+           - Use descriptive test method names explaining the scenario
+           - Include docstrings with:
+             • What is being tested
+             • Expected behavior
+             • Any special conditions
+           - Follow Arrange-Act-Assert pattern
+           - Avoid test interdependencies
+           - Mock external dependencies
+           - Clean up resources in tearDown
+    
+        5. CODE QUALITY:
+           - Follow PEP 8 style guidelines
+           - Use clear variable names
+           - Add appropriate comments
+           - Handle resource cleanup
+           - Maintain test isolation
+    
+        === OUTPUT FORMAT ===
+        Return ONLY the unittest code in this format:
         ```python
         [Your unittest code here]
         ```
+    
+        IMPORTANT:
+        - Tests should be thorough yet maintainable
+        - Each test should have a clear purpose
+        - Include setup and cleanup where needed
+        - Handle all edge cases and errors
+        - Ensure tests are isolated and repeatable
+        - Focus on both positive and negative scenarios
+        - Consider performance implications
         """
 
     def _process_ai_response(self, response_text: str, analysis: CodeAnalysis) -> str:

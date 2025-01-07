@@ -1,5 +1,5 @@
-<img width="750" alt="Screenshot 2025-01-05 at 7 59 35 PM" src="https://github.com/user-attachments/assets/7e772eb4-fa01-4c67-a20c-59ec496a15f8" />
-<img width="750" alt="Screenshot 2025-01-05 at 7 59 56 PM" src="https://github.com/user-attachments/assets/52770134-91dd-45a8-8a94-d8ca9f092f86" />
+<img width="1112" alt="Screenshot 2025-01-07 at 7 27 58 PM" src="https://github.com/user-attachments/assets/1d54fdc6-6898-4455-ad49-1210845e1aaf" />
+<img width="1112" alt="Screenshot 2025-01-07 at 7 28 20 PM" src="https://github.com/user-attachments/assets/58a31cee-2fa8-4bc1-b7a5-ca6457a58246" />
 
 # AI Code Checker
 

@@ -374,7 +374,27 @@ class Test{class_name}(unittest.TestCase):
     {{
         "language": "python3",
         "score": {score},
-        "scoring_explanation": "Provide a detailed analysis explaining the score. Your explanation must include: 1) A summary of the test results ({passed} out of {total_tests} tests passed, {pass_percentage:.1f}% pass rate). 2) At least **three specific examples** from the code that demonstrate strengths or areas for improvement. 3) For each example, explain how it affects the score and why. 4) Offer concrete suggestions or commendations related to these examples. **Avoid general statements and ensure all points are directly tied to specific parts of the code.**",
+        "scoring_explanation": "Provide a brief scoring explanation in a single, cohesive paragraph that:
+
+- Offers an overall assessment of the code's correctness and adherence to the user's requirements.
+
+- Highlights at least three specific critical issues or strengths **without using any numbering, bullet points, or lists**, and avoids terms like 'first', 'second', 'third', etc.
+
+- References specific parts of the code where appropriate.
+
+- Explains how these points affect the code's functionality, security, efficiency, or readability, and their impact on the overall score.
+
+- Uses clear and concise language, avoiding unnecessary details and excessive verbosity.
+
+- Keeps the explanation to a maximum of 4-5 sentences.
+
+- Avoids general statements, ensuring all feedback is directly tied to specific code elements.
+
+- Does not include test pass rates or percentages unless they are directly relevant to the key issues affecting the score.
+
+- Ensures that the language is professional and constructive, integrating suggestions for improvement or commendations naturally within the narrative.
+
+- Maintains a smooth flow by refraining from any form of enumeration, including words like 'firstly', 'secondly', 'additionally', or 'finally'.",
         "issues": [
             {{
                 "description": "First specific issue identified in the code or tests.",
